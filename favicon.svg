@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs>
+<linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3EE6FF"/><stop offset="1" stop-color="#8B7BFF"/></linearGradient>
+<linearGradient id="hg2" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#8B7BFF" stop-opacity="0.2"/><stop offset="0.5" stop-color="#8B7BFF"/><stop offset="1" stop-color="#3EE6FF"/></linearGradient>
+<radialGradient id="hbg" cx="0.3" cy="0.2" r="1"><stop offset="0" stop-color="#1A2560"/><stop offset="0.55" stop-color="#0B1130"/><stop offset="1" stop-color="#060918"/></radialGradient>
+<radialGradient id="hglow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#3EE6FF" stop-opacity="0.32"/><stop offset="1" stop-color="#3EE6FF" stop-opacity="0"/></radialGradient>
+<filter id="hf" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<rect x="6" y="6" width="88" height="88" rx="21" fill="url(#hbg)"/><rect x="6.5" y="6.5" width="87" height="87" rx="20.5" fill="none" stroke="rgba(160,200,255,0.18)" stroke-width="1"/>
+<clipPath id="hclip"><rect x="6" y="6" width="88" height="88" rx="21"/></clipPath><g clip-path="url(#hclip)"><circle cx="50" cy="50" r="38" fill="url(#hglow)"/><g filter="url(#hf)"><path d="M18 76Q40 70 60 56" stroke="url(#hg2)" stroke-width="7" stroke-linecap="round" fill="none"/>
+    <g transform="rotate(-38 62 44)"><rect x="58.5" y="12" width="7" height="24" rx="3.5" fill="#8B7BFF"/><rect x="56" y="34" width="12" height="6" rx="1.5" fill="#C9D3F0"/>
+    <path d="M55 40H69L71 57Q62 60 53 57Z" fill="url(#hg)"/><path d="M57.5 43V56M60.5 43V57.5M63.5 43V57.5M66.5 43V56" stroke="rgba(6,16,36,0.35)" stroke-width="0.9"/></g>
+    <path d="M27 25Q27 32 34 32Q27 32 27 39Q27 32 20 32Q27 32 27 25Z" fill="#EAFBFF"/><path d="M40 19.6Q40 23 43.4 23Q40 23 40 26.4Q40 23 36.6 23Q40 23 40 19.6Z" fill="#3EE6FF"/><path d="M78 69.8Q78 74 82.2 74Q78 74 78 78.2Q78 74 73.8 74Q78 74 78 69.8Z" fill="#3EE6FF"/></g></g></svg>

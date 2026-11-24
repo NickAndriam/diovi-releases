@@ -1,0 +1,909 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Diovi: storage cleaner for Mac and Windows</title>
+<meta name="description" content="Diovi finds the caches, logs, build leftovers and old installers your Mac or Windows PC can spare, shows exactly what each spot holds, and removes only what you tick.">
+<meta name="theme-color" content="#070B1C">
+<meta property="og:title" content="Diovi: storage cleaner for Mac and Windows">
+<meta property="og:description" content="Get your space back. See every byte first.">
+<meta property="og:type" content="website">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: the app's own night-glass world. Floating glass header; hero = the real app window with a real scan;
+   a spectrum of tools in their in-app accents; the safety promise as the real confirm dialog; aligned download cards. */
+:root {
+  color-scheme: dark;
+  --night: #070B1C;
+  --night-2: #0B1130;
+  --ink: #EAF0FF;
+  --sub: #93A0C6;
+  --dim: #66729A;
+  --cyan: #3EE6FF;
+  --violet: #8B7BFF;
+  --mint: #46F0B0;
+  --amber: #FFB547;
+  --glass: rgba(255,255,255,0.045);
+  --glass-2: rgba(255,255,255,0.075);
+  --line: rgba(255,255,255,0.09);
+  --line-2: rgba(255,255,255,0.15);
+  --grad: linear-gradient(90deg, var(--cyan), var(--violet));
+  --mint-btn: linear-gradient(90deg, #6BF7C6, #46F0B0 55%, #3EE0D0);
+  --on-accent: #04111C;
+  --display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+}
+html, body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+:root { padding-top: env(safe-area-inset-top, 0px); }
+* { box-sizing: border-box; }
+html { background: var(--night); }
+body {
+  font-family: var(--body);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  background:
+    radial-gradient(900px 600px at 85% -5%, rgba(139,123,255,0.26), transparent 70%),
+    radial-gradient(800px 560px at 5% 30%, rgba(62,230,255,0.11), transparent 70%),
+    radial-gradient(1px 1px at 20px 20px, rgba(190,210,255,0.10) 1px, transparent 0) 0 0 / 28px 28px,
+    var(--night);
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--night); }
+a { color: inherit; }
+button { font-family: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 8px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cyan); }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h2 { font-size: clamp(30px, 4.2vw, 48px); line-height: 1.06; letter-spacing: -0.025em; font-weight: 600; }
+.lede { color: var(--sub); font-size: 18px; max-width: 58ch; margin: 0; }
+.grad-text { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------- Header: floating glass bar ---------- */
+.nav { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); z-index: 20; margin-top: 12px; }
+.nav-in { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 14px; border-radius: 18px;
+  background: rgba(12,18,46,0.62); border: 1px solid var(--line);
+  backdrop-filter: blur(20px) saturate(1.5); -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  box-shadow: 0 18px 50px -24px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06); }
+.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: 0.01em; flex-shrink: 0; }
+.logo svg { width: 30px; height: 30px; }
+.nav-links { display: flex; gap: 2px; margin: 0 auto; font-size: 14px; color: var(--sub); }
+.nav-links a { text-decoration: none; padding: 8px 12px; border-radius: 10px; transition: color .2s, background .2s; white-space: nowrap; }
+.nav-links a:hover { color: var(--ink); background: var(--glass); }
+.nav-end { display: flex; align-items: center; gap: 8px; }
+.lang { display: flex; padding: 3px; border-radius: 11px; background: rgba(0,0,0,0.25); border: 1px solid var(--line); }
+.lang button { border: 0; background: transparent; cursor: pointer; font: 600 12px var(--mono); letter-spacing: 0.04em; color: var(--dim); padding: 6px 9px; border-radius: 8px; transition: color .2s, background .2s; }
+.lang button[aria-pressed="true"] { color: var(--ink); background: var(--glass-2); box-shadow: inset 0 0 0 1px var(--line-2); }
+
+/* ---------- Buttons ---------- */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; border: 0; cursor: pointer; text-decoration: none; font: 600 16px/1.1 var(--body); border-radius: 14px; transition: transform .15s, box-shadow .25s, background .2s; text-align: center; }
+.btn:active { transform: scale(0.97); }
+.btn-primary { padding: 16px 22px; color: var(--on-accent); font-weight: 700; background: var(--grad); box-shadow: 0 10px 40px -10px rgba(62,230,255,0.6), inset 0 1px 0 rgba(255,255,255,0.5); }
+.btn-primary:hover { box-shadow: 0 14px 52px -8px rgba(139,123,255,0.7), inset 0 1px 0 rgba(255,255,255,0.5); }
+.btn-primary small { font: 500 12px var(--mono); opacity: 0.75; padding-left: 10px; border-left: 1px solid rgba(4,17,28,0.25); white-space: nowrap; }
+.btn-ghost { padding: 15px 18px; color: var(--ink); background: var(--glass); border: 1px solid var(--line-2); }
+.btn-ghost:hover { background: var(--glass-2); }
+.btn-link { padding: 14px 10px; background: transparent; color: var(--sub); font-weight: 500; font-size: 15px; border-radius: 12px; }
+.btn-link:hover, .btn-link[aria-expanded="true"] { color: var(--ink); background: var(--glass); }
+.btn-sm { padding: 10px 14px; font-size: 14px; border-radius: 11px; }
+.btn svg { flex-shrink: 0; }
+
+/* ---------- Hero ---------- */
+.hero { padding-block: 64px 48px; }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 56px; align-items: center; }
+.hero h1 { font-size: clamp(42px, 6vw, 76px); line-height: 1; letter-spacing: -0.04em; font-weight: 600; margin: 18px 0 22px; }
+.hero h1 .grad-text { display: block; }
+.hero .lede { font-size: 18.5px; }
+.cta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 32px; position: relative; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 18px; font-size: 13px; color: var(--dim); font-family: var(--mono); }
+.meta span::before { content: "✓ "; color: var(--mint); }
+.phone-note { display: none; margin: 14px 0 0; font-size: 14px; color: var(--sub); }
+.on-phone .phone-note { display: block; }
+.on-phone .js-dl-meta { display: none; }
+
+/* Other platforms menu */
+.menu { position: absolute; top: calc(100% + 10px); left: 0; z-index: 30; width: min(380px, 100%); padding: 8px; border-radius: 18px; background: rgba(14,20,48,0.97); border: 1px solid var(--line-2); box-shadow: 0 30px 80px -20px rgba(0,0,0,0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+.menu a { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; text-decoration: none; }
+.menu a:hover, .menu a:focus-visible { background: var(--glass-2); }
+.os-ic { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--glass); border: 1px solid var(--line); flex-shrink: 0; }
+.menu b { display: block; font-weight: 600; font-size: 15px; }
+.menu i { display: block; font-style: normal; font: 12px var(--mono); color: var(--sub); overflow-wrap: anywhere; }
+.menu .here { font: 11px var(--mono); color: var(--mint); white-space: nowrap; }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 6px 4px; }
+
+/* Product window (Windows look, real scan) */
+.shot { position: relative; }
+.window { position: relative; border-radius: 26px; padding: 10px; display: flex; gap: 10px;
+  background: linear-gradient(180deg, rgba(20,28,66,0.88), rgba(9,13,34,0.94)); border: 1px solid var(--line-2);
+  box-shadow: 0 60px 120px -40px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.08);
+  transform: perspective(1600px) rotateY(-6deg) rotateX(2deg); transform-origin: 30% 50%; }
+.shot::before { content: ""; position: absolute; inset: -40px -30px -40px; z-index: -1; background: radial-gradient(closest-side, rgba(70,240,176,0.16), transparent); filter: blur(10px); }
+.w-ctrl { position: absolute; top: 14px; right: 18px; display: flex; gap: 16px; color: var(--dim); }
+.w-rail { width: 76px; flex-shrink: 0; border-radius: 18px; background: var(--glass); border: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 4px; }
+.w-rail > svg { width: 30px; height: 30px; margin-bottom: 10px; }
+.w-item { width: 62px; height: 46px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 9.5px; color: var(--sub); text-align: center; line-height: 1.1; }
+.w-item svg { stroke: #B8C3E3; }
+.w-item.on { color: var(--ink); background: linear-gradient(180deg, rgba(70,240,176,0.16), rgba(43,184,232,0.10)); box-shadow: inset 0 0 0 1px rgba(70,240,176,0.3), 0 0 20px rgba(70,240,176,0.12); }
+.w-item.on svg { stroke: var(--mint); }
+.w-stage { flex: 1; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 22px; align-items: center; padding: 40px 16px 18px 8px;
+  background: repeating-linear-gradient(-32deg, transparent 0 46px, rgba(70,240,176,0.03) 46px 48px); border-radius: 20px; }
+.ring { position: relative; width: 190px; height: 190px; }
+.ring svg { display: block; width: 100%; height: 100%; }
+.ring .arc { stroke-dasharray: 227 999; animation: sweep 1.6s cubic-bezier(0.2,0.9,0.25,1) 0.3s backwards; }
+@keyframes sweep { from { stroke-dasharray: 0 999; } }
+.ring-c { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 28px; }
+.ring-c small { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sub); }
+.ring-c b { font: 600 36px/1.1 var(--display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ring-c span { font-size: 11.5px; color: var(--mint); }
+.rows { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.row { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px; background: var(--glass); border: 1px solid var(--line); font-size: 13px; }
+.tick { width: 16px; height: 16px; border-radius: 5px; background: var(--mint); display: grid; place-items: center; }
+.tick.off { background: transparent; box-shadow: inset 0 0 0 1.5px var(--dim); }
+.row .nm { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px; }
+.row .nm em { font-style: normal; min-width: 0; line-height: 1.25; overflow-wrap: anywhere; }
+.row.rev .nm em { color: var(--sub); }
+.chip-rev { flex-shrink: 0; font: 600 9.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber); padding: 2px 6px; border-radius: 5px; background: rgba(255,181,71,0.1); box-shadow: inset 0 0 0 1px rgba(255,181,71,0.3); }
+.sz { font: 500 12px var(--mono); color: var(--sub); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.w-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; }
+.w-foot .w-note { font-size: 12px; color: var(--sub); }
+.w-foot .w-btn { padding: 10px 16px; border-radius: 11px; font: 700 13px var(--body); color: var(--on-accent); white-space: nowrap; background: var(--mint-btn); box-shadow: 0 6px 20px -4px rgba(70,240,176,0.55), inset 0 1px 0 rgba(255,255,255,0.5); }
+.caption { position: relative; margin: 20px 0 0; padding-left: 16px; font: 12px/1.5 var(--mono); color: var(--dim); max-width: 60ch; }
+.caption::before { content: ""; position: absolute; left: 0; top: 0.5em; width: 7px; height: 7px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 10px var(--mint); }
+
+@media (max-width: 980px) {
+  .hero-grid { grid-template-columns: minmax(0, 1fr); gap: 56px; }
+  .window { transform: none; }
+}
+
+/* ---------- Sections ---------- */
+section { padding-block: 104px; }
+.sec-head { display: flex; flex-direction: column; gap: 16px; margin-bottom: 48px; }
+
+/* Tools spectrum */
+.tools { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.tool { --a: #3EE6FF; --b: #8B7BFF; position: relative; overflow: hidden; padding: 20px 18px 22px; border-radius: 20px; background: var(--glass); border: 1px solid var(--line); min-width: 0; transition: transform .3s cubic-bezier(.22,1.2,.36,1), border-color .3s; }
+.tool::before { content: ""; position: absolute; inset: auto -30% -60% -30%; height: 120%; background: radial-gradient(closest-side, color-mix(in srgb, var(--b) 30%, transparent), transparent); opacity: 0.5; transition: opacity .3s; pointer-events: none; }
+.tool:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--a) 45%, transparent); }
+.tool:hover::before { opacity: 1; }
+.tool .bar { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: linear-gradient(90deg, var(--a), var(--b)); opacity: 0.8; }
+.tool .ic { position: relative; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 24px; background: linear-gradient(135deg, color-mix(in srgb, var(--a) 22%, transparent), color-mix(in srgb, var(--b) 14%, transparent)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--a) 35%, transparent); }
+.tool .ic svg { stroke: var(--a); }
+.tool h3 { position: relative; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 6px; overflow-wrap: anywhere; }
+.tool p { position: relative; margin: 0; font-size: 14px; line-height: 1.45; color: var(--sub); overflow-wrap: anywhere; }
+@media (max-width: 1060px) { .tools { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Safety */
+.safety { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; align-items: center; }
+.promises { list-style: none; padding: 0; margin: 32px 0 0; display: flex; flex-direction: column; gap: 20px; }
+.promises li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 14px; }
+.pi { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: rgba(70,240,176,0.1); box-shadow: inset 0 0 0 1px rgba(70,240,176,0.3); }
+.pi svg { stroke: var(--mint); }
+.promises b { display: block; font-weight: 600; margin-bottom: 2px; }
+.promises span { color: var(--sub); font-size: 15px; }
+.guard { margin-top: 32px; }
+.guard small { display: block; font: 11px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); margin-bottom: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 12px var(--mono); padding: 6px 10px; border-radius: 8px; background: var(--glass); border: 1px solid var(--line); color: var(--sub); display: inline-flex; align-items: center; gap: 6px; }
+.chip svg { stroke: var(--mint); }
+
+.dialog { border-radius: 26px; padding: 28px; background: linear-gradient(180deg, rgba(22,30,70,0.92), rgba(10,14,36,0.96)); border: 1px solid var(--line-2); box-shadow: 0 50px 100px -40px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.07); }
+.dialog h3 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+.dialog > p { color: var(--sub); font-size: 14px; margin: 0 0 18px; }
+.d-list { border-radius: 14px; background: rgba(0,0,0,0.2); border: 1px solid var(--line); padding: 4px 14px; margin-bottom: 18px; }
+.d-list div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; font-size: 13.5px; border-bottom: 1px solid var(--line); }
+.d-list div:last-child { border-bottom: 0; }
+.d-list span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.choice { text-align: left; padding: 14px; border-radius: 16px; background: var(--glass); border: 1px solid var(--line); cursor: pointer; color: var(--ink); font: inherit; transition: border-color .2s, background .2s; min-width: 0; }
+.choice b { display: flex; align-items: center; gap: 8px; font-size: 15px; margin-bottom: 4px; }
+.choice span { font-size: 12.5px; color: var(--sub); line-height: 1.4; display: block; }
+.choice[aria-pressed="true"] { background: rgba(70,240,176,0.08); border-color: rgba(70,240,176,0.5); }
+.choice[aria-pressed="true"].perm { background: rgba(229,72,77,0.09); border-color: rgba(229,72,77,0.55); }
+.d-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.d-actions button { padding: 11px 16px; border-radius: 12px; font: 600 14px var(--body); border: 1px solid var(--line-2); background: var(--glass); color: var(--ink); cursor: pointer; }
+.d-actions .go { border: 0; font-weight: 700; color: var(--on-accent); background: var(--mint-btn); box-shadow: 0 6px 20px -4px rgba(70,240,176,0.5), inset 0 1px 0 rgba(255,255,255,0.5); }
+.d-actions .go.perm { color: #fff; background: linear-gradient(90deg, #E5484D, #C92F55); box-shadow: 0 6px 20px -4px rgba(229,72,77,0.5), inset 0 1px 0 rgba(255,255,255,0.2); }
+@media (max-width: 900px) { .safety { grid-template-columns: minmax(0, 1fr); } }
+
+/* Why */
+.diff { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border-radius: 22px; overflow: hidden; border: 1px solid var(--line); }
+.diff > div { background: var(--night-2); padding: 28px 26px; min-width: 0; }
+.diff .k { font: 500 32px/1.05 var(--display); letter-spacing: -0.02em; margin-bottom: 12px; }
+.diff b { display: block; font-weight: 600; margin-bottom: 6px; }
+.diff p { margin: 0; color: var(--sub); font-size: 14.5px; }
+@media (max-width: 820px) { .diff { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- Download ---------- */
+.dl { position: relative; overflow: hidden; border-radius: 32px; padding: 56px 48px 48px;
+  background: radial-gradient(700px 320px at 90% 0%, rgba(139,123,255,0.32), transparent 70%), radial-gradient(500px 300px at 0% 100%, rgba(62,230,255,0.16), transparent 70%), var(--night-2);
+  border: 1px solid var(--line-2); }
+.dl .sec-head { margin-bottom: 36px; }
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
+.card { display: flex; flex-direction: column; gap: 18px; padding: 22px; border-radius: 22px; background: var(--glass); border: 1px solid var(--line); min-width: 0; }
+.card.mine { border-color: rgba(62,230,255,0.5); box-shadow: 0 0 0 1px rgba(62,230,255,0.15), 0 20px 50px -24px rgba(62,230,255,0.5); }
+.card-top { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 14px; align-items: center; }
+.card-top .os-ic { width: 44px; height: 44px; border-radius: 12px; }
+.card-top b { display: block; font: 600 19px/1.2 var(--display); }
+.card-top i { display: block; font-style: normal; font-size: 13px; color: var(--sub); }
+.mine-tag { font: 600 10.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--cyan); }
+.specs { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; margin: 0; font-size: 13px; }
+.specs dt { color: var(--dim); font-family: var(--mono); font-size: 12px; }
+.specs dd { margin: 0; text-align: right; font-family: var(--mono); font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.card .btn { margin-top: auto; width: 100%; }
+.card .btn-ghost { padding-block: 14px; }
+.card.mine .btn-ghost { color: var(--on-accent); font-weight: 700; border: 0; background: var(--grad); box-shadow: 0 10px 30px -12px rgba(62,230,255,0.6), inset 0 1px 0 rgba(255,255,255,0.5); }
+.card.help { background: rgba(0,0,0,0.16); }
+.help h3 { font-size: 17px; font-weight: 600; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; font-size: 13.5px; color: var(--sub); }
+.steps li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; }
+.steps svg { margin-top: 2px; color: var(--sub); }
+.steps b { color: var(--ink); font-weight: 600; }
+.help .msi { margin: auto 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--sub); }
+.help .msi a { color: var(--cyan); text-decoration: none; }
+.help .msi a:hover { text-decoration: underline; }
+
+/* Release history */
+.history { margin-top: 44px; padding-top: 32px; border-top: 1px solid var(--line); }
+.h-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; margin-bottom: 18px; }
+.h-head h3 { font-size: 20px; font-weight: 600; }
+.h-src { font: 12px var(--mono); color: var(--dim); }
+.h-src.live::before { content: "● "; color: var(--mint); }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+.stats div { padding: 16px 18px; border-radius: 16px; background: rgba(0,0,0,0.18); border: 1px solid var(--line); min-width: 0; }
+.stats b { display: block; font: 600 30px/1.1 var(--display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.stats span { font-size: 13px; color: var(--sub); }
+.rtable { border-radius: 16px; border: 1px solid var(--line); overflow: hidden; }
+.rrow { display: grid; grid-template-columns: 150px 130px 170px minmax(0, 1fr); gap: 12px; align-items: center; padding: 13px 18px; border-top: 1px solid var(--line); font-size: 13.5px; }
+.rrow:first-child { border-top: 0; }
+.rrow.head { background: rgba(0,0,0,0.2); font: 11px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); padding-block: 10px; }
+.rrow .tag { font: 600 14px var(--mono); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+.rrow .tag:hover { color: var(--cyan); }
+.badge { font: 600 10px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 6px; border-radius: 5px; color: var(--on-accent); background: var(--mint); }
+.rrow .when, .rrow .cnt { color: var(--sub); font-variant-numeric: tabular-nums; }
+.rrow .files { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.rrow .files a { font: 12px var(--mono); padding: 5px 9px; border-radius: 8px; text-decoration: none; color: var(--sub); background: rgba(0,0,0,0.2); border: 1px solid var(--line); white-space: nowrap; }
+.rrow .files a:hover { color: var(--ink); border-color: var(--line-2); }
+.rrow .files a b { color: var(--ink); font-weight: 500; }
+.rrow.head .files { justify-content: flex-end; }
+.all-rel { display: inline-block; margin-top: 14px; font: 13px var(--mono); color: var(--cyan); text-decoration: none; }
+.all-rel:hover { text-decoration: underline; }
+@media (max-width: 1000px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } .card.help { grid-column: 1 / -1; } }
+@media (max-width: 860px) {
+  .dl { padding: 40px 22px 32px; }
+  .rrow { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "tag cnt" "when when" "files files"; row-gap: 6px; }
+  .rrow.head { display: none; }
+  .rrow .tag { grid-area: tag; } .rrow .when { grid-area: when; } .rrow .cnt { grid-area: cnt; } .rrow .files { grid-area: files; justify-content: flex-start; margin-top: 4px; }
+}
+
+footer { padding-block: 40px 56px; border-top: 1px solid var(--line); color: var(--dim); font-size: 13px; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: center; }
+footer .logo { font-size: 15px; color: var(--sub); }
+footer .logo svg { width: 24px; height: 24px; }
+footer a { color: var(--sub); text-decoration: none; }
+footer a:hover { color: var(--ink); }
+footer .sp { margin-left: auto; }
+
+.mbar { display: none; }
+
+/* ---------- Phone: one clear column, fewer words, thumb-sized buttons ---------- */
+@media (max-width: 640px) {
+  body { font-size: 15px; }
+  .nav { top: calc(env(safe-area-inset-top, 0px) + 8px); margin-top: 8px; }
+  .nav-in { padding: 6px 6px 6px 12px; border-radius: 16px; }
+  .nav-links, .nav-end .btn { display: none; }
+  .nav-end { margin-left: auto; }
+  .logo { font-size: 17px; }
+  .logo svg { width: 28px; height: 28px; }
+
+  .hero { padding-block: 36px 24px; }
+  .hero-grid { gap: 36px; }
+  .eyebrow { font-size: 11px; }
+  .hero h1 { font-size: clamp(36px, 11vw, 46px); margin: 12px 0 14px; }
+  .hero .lede { font-size: 16px; }
+  .lede-long { display: none; }
+  .cta { flex-direction: column; align-items: stretch; margin-top: 24px; gap: 10px; }
+  .cta .btn { padding-block: 17px; }
+  .cta .btn-link { padding-block: 12px; border: 1px solid var(--line); }
+  .menu { width: 100%; }
+  .meta .m-extra { display: none; }
+  .meta { justify-content: center; }
+
+  .window { border-radius: 22px; padding: 6px; }
+  .w-rail, .w-ctrl { display: none; }
+  .w-stage { grid-template-columns: 112px minmax(0, 1fr); gap: 14px; padding: 16px 10px 12px; }
+  .ring { width: 112px; height: 112px; }
+  .ring-c { padding: 0 14px; }
+  .ring-c small { font-size: 8.5px; }
+  .ring-c b { font-size: 22px; }
+  .ring-c span { font-size: 10px; }
+  .row { padding: 7px 10px; font-size: 12.5px; gap: 8px; grid-template-columns: 14px minmax(0, 1fr) auto; }
+  .tick { width: 14px; height: 14px; }
+  .rows .row:nth-child(n+4) { display: none; }
+  .chip-rev { display: none; }
+  .w-foot { grid-column: 1 / -1; }
+  .rows { display: contents; }
+  .rows-list { grid-column: 2; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .w-foot .w-btn { flex: 1; text-align: center; }
+  .caption { font-size: 11px; margin-top: 14px; }
+
+  section { padding-block: 64px; }
+  .sec-head { margin-bottom: 24px; gap: 12px; }
+  .sec-head h2 br { display: none; }
+  h2 { font-size: clamp(27px, 8vw, 32px); }
+  .tools { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .tool { padding: 14px; border-radius: 16px; display: flex; align-items: center; gap: 12px; }
+  .tool:hover { transform: none; }
+  .tool .ic { width: 34px; height: 34px; margin: 0; border-radius: 10px; flex-shrink: 0; }
+  .tool h3 { font-size: 14.5px; margin: 0; line-height: 1.2; }
+  .tool p, .tool .bar { display: none; }
+
+  .safety { gap: 32px; }
+  .promises { gap: 16px; margin-top: 22px; }
+  .promises span { font-size: 14px; }
+  .guard { margin-top: 22px; }
+  .dialog { padding: 20px; border-radius: 22px; }
+  .choices { grid-template-columns: 1fr; }
+  .d-actions button { flex: 1; }
+  .why { display: none; }
+
+  #download { padding-top: 8px; }
+  .dl { padding: 28px 16px 22px; border-radius: 24px; }
+  .dl .sec-head { margin-bottom: 22px; }
+  .cards { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .card { padding: 18px; gap: 14px; }
+  .specs { display: none; }
+  .card.mine { order: -1; }
+  .history { margin-top: 28px; padding-top: 22px; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .stats div { padding: 12px 14px; }
+  .stats b { font-size: 24px; }
+  .rrow:not(.head):nth-child(n+3) { display: none; }
+
+  footer { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  footer .sp { margin-left: 0; }
+  .mbar { display: flex; align-items: center; gap: 12px; position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
+    padding: 10px var(--gutter-r) calc(10px + env(safe-area-inset-bottom, 0px)) var(--gutter-l);
+    background: rgba(7,11,28,0.88); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4);
+    border-top: 1px solid var(--line); transform: translateY(110%); transition: transform .35s cubic-bezier(.22,1,.36,1); }
+  .mbar.show { transform: none; }
+  .mbar > svg { width: 34px; height: 34px; flex-shrink: 0; }
+  .mbar .mb-t { min-width: 0; flex: 1; line-height: 1.25; }
+  .mbar b { display: block; font: 600 15px var(--display); }
+  .mbar i { display: block; font-style: normal; font: 11.5px var(--mono); color: var(--sub); overflow-wrap: anywhere; }
+  .mbar .btn { padding: 12px 16px; font-size: 14px; }
+}
+@media (min-width: 641px) { .rows-list { display: contents; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3EE6FF"/><stop offset="1" stop-color="#8B7BFF"/></linearGradient>
+    <linearGradient id="hg2" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#8B7BFF" stop-opacity="0.2"/><stop offset="0.5" stop-color="#8B7BFF"/><stop offset="1" stop-color="#3EE6FF"/></linearGradient>
+    <radialGradient id="hbg" cx="0.3" cy="0.2" r="1"><stop offset="0" stop-color="#1A2560"/><stop offset="0.55" stop-color="#0B1130"/><stop offset="1" stop-color="#060918"/></radialGradient>
+    <radialGradient id="hglow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#3EE6FF" stop-opacity="0.32"/><stop offset="1" stop-color="#3EE6FF" stop-opacity="0"/></radialGradient>
+    <clipPath id="hclip"><rect x="6" y="6" width="88" height="88" rx="21"/></clipPath>
+    <linearGradient id="ringg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#46F0B0"/><stop offset="1" stop-color="#2BB8E8"/></linearGradient>
+    <symbol id="logo" viewBox="0 0 100 100">
+      <rect x="6" y="6" width="88" height="88" rx="21" fill="url(#hbg)"/><rect x="6.5" y="6.5" width="87" height="87" rx="20.5" fill="none" stroke="rgba(160,200,255,0.18)" stroke-width="1"/>
+      <g clip-path="url(#hclip)"><circle cx="50" cy="50" r="38" fill="url(#hglow)"/><path d="M18 76Q40 70 60 56" stroke="url(#hg2)" stroke-width="7" stroke-linecap="round" fill="none"/>
+      <g transform="rotate(-38 62 44)"><rect x="58.5" y="12" width="7" height="24" rx="3.5" fill="#8B7BFF"/><rect x="56" y="34" width="12" height="6" rx="1.5" fill="#C9D3F0"/>
+      <path d="M55 40H69L71 57Q62 60 53 57Z" fill="url(#hg)"/><path d="M57.5 43V56M60.5 43V57.5M63.5 43V57.5M66.5 43V56" stroke="rgba(6,16,36,0.35)" stroke-width="0.9"/></g>
+      <path d="M27 25Q27 32 34 32Q27 32 27 39Q27 32 20 32Q27 32 27 25Z" fill="#EAFBFF"/><path d="M40 19.6Q40 23 43.4 23Q40 23 40 26.4Q40 23 36.6 23Q40 23 40 19.6Z" fill="#3EE6FF"/><path d="M78 69.8Q78 74 82.2 74Q78 74 78 78.2Q78 74 73.8 74Q78 74 78 69.8Z" fill="#3EE6FF"/></g>
+    </symbol>
+    <symbol id="apple" viewBox="0 0 24 24"><path fill="currentColor" d="M16.4 12.6c0-2.4 2-3.6 2.1-3.6-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.1 1-4 2.4-1.7 3-.4 7.3 1.2 9.7.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8 0 0-2.5-1-2.5-3.9zM14 5.6c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1 .1 2.1-.6 2.8-1.4z"/></symbol>
+    <symbol id="windows" viewBox="0 0 24 24"><path fill="currentColor" d="M3 5.5l7.4-1v7H3v-6zm0 13l7.4 1v-7H3v6zm8.3 1.1L21 21v-8.3h-9.7v6.9zm0-15.2v7.1H21V3l-9.7 1.4z"/></symbol>
+    <symbol id="dl" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></symbol>
+    <symbol id="share" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 15V3m0 0L7.5 7.5M12 3l4.5 4.5M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/></symbol>
+    <symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke-width="2.4"/><path d="M8 11V8a4 4 0 018 0v3" fill="none" stroke-width="2.4"/></symbol>
+    <symbol id="check" viewBox="0 0 10 10"><path d="M2 5l2 2 4-4" fill="none" stroke="#04111C" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+
+<nav class="nav wrap" aria-label="Main">
+  <div class="nav-in">
+    <a class="logo" href="#top"><svg aria-hidden="true"><use href="#logo"/></svg>Diovi</a>
+    <div class="nav-links">
+      <a href="#tools" data-i18n="nav.tools">Tools</a>
+      <a href="#safety" data-i18n="nav.safety">Safety</a>
+      <a href="#download" data-i18n="nav.download">Download</a>
+      <a href="https://github.com/NickAndriam/diovi-releases/releases" target="_blank" rel="noopener" data-i18n="nav.releases">Releases</a>
+    </div>
+    <div class="nav-end">
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="fr" aria-pressed="false">FR</button>
+      </div>
+      <a class="btn btn-primary btn-sm js-dl" href="https://github.com/NickAndriam/diovi-releases/releases/latest" target="_blank" rel="noopener"><svg width="16" height="16" class="js-dl-icon-s"><use href="#dl"/></svg><span class="js-dl-short">Download</span></a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap hero-grid">
+    <div>
+      <div class="eyebrow" data-i18n="hero.eyebrow">Storage cleaner · macOS &amp; Windows</div>
+      <h1 data-i18n="hero.h1">Get your space back. <span class="grad-text">See every byte first.</span></h1>
+      <p class="lede" data-i18n="hero.lede">Diovi finds the caches, logs, build leftovers and old installers your computer can spare<span class="lede-long">, shows exactly what each spot holds,</span> and removes only what you tick.</p>
+      <div class="cta" id="cta">
+        <a class="btn btn-primary js-dl" href="https://github.com/NickAndriam/diovi-releases/releases/latest" target="_blank" rel="noopener">
+          <svg width="20" height="20" class="js-dl-icon"><use href="#apple"/></svg>
+          <span class="js-dl-label">Download for Mac</span>
+          <small class="js-dl-meta">v0.5.1</small>
+        </a>
+        <button class="btn btn-link" id="other-btn" type="button" aria-expanded="false" aria-controls="other-menu">
+          <span data-i18n="hero.other">Other platforms</span>
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5L6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="menu" id="other-menu" hidden>
+          <a href="https://github.com/NickAndriam/diovi-releases/releases/latest" target="_blank" rel="noopener" data-os="mac" data-asset="mac">
+            <span class="os-ic"><svg width="20" height="20"><use href="#apple"/></svg></span>
+            <span><b>macOS</b><i class="js-file" data-kind="mac">Universal .dmg</i></span>
+            <span class="here" hidden data-i18n="menu.here">Your system</span>
+          </a>
+          <a href="https://github.com/NickAndriam/diovi-releases/releases/latest" target="_blank" rel="noopener" data-os="win" data-asset="win">
+            <span class="os-ic"><svg width="18" height="18"><use href="#windows"/></svg></span>
+            <span><b>Windows</b><i class="js-file" data-kind="win">x64 installer (.exe)</i></span>
+            <span class="here" hidden data-i18n="menu.here">Your system</span>
+          </a>
+          <a href="https://github.com/NickAndriam/diovi-releases/releases/latest" target="_blank" rel="noopener" data-asset="msi">
+            <span class="os-ic"><svg width="18" height="18"><use href="#windows"/></svg></span>
+            <span><b>Windows (.msi)</b><i class="js-file" data-kind="msi">For managed installs</i></span>
+          </a>
+          <hr>
+          <a href="https://github.com/NickAndriam/diovi-releases/releases" target="_blank" rel="noopener">
+            <span class="os-ic"><svg width="18" height="18" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></span>
+            <span><b data-i18n="menu.all">All releases</b><i data-i18n="menu.allsub">Older versions and notes</i></span>
+          </a>
+        </div>
+      </div>
+      <p class="phone-note" id="phone-note" data-i18n="hero.phone">Diovi runs on Mac and Windows. Send this page to your computer, or pick a file under Other platforms.</p>
+      <div class="meta"><span class="m-extra" data-i18n="meta.free">Free</span><span id="m-ver">v0.5.1</span><span id="m-dl">68 downloads</span><span class="m-extra" data-i18n="meta.lang">English &amp; French</span><span class="m-extra" data-i18n="meta.auto">Updates itself</span></div>
+    </div>
+
+    <div class="shot">
+      <div class="window" role="img" aria-label="Diovi on Windows 11 after a real scan: 5.4 GB found, 2.3 GB ticked">
+        <div class="w-ctrl" aria-hidden="true">
+          <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 5h8" stroke="currentColor" stroke-width="1.2"/></svg>
+          <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+          <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.2"/></svg>
+        </div>
+        <div class="w-rail" aria-hidden="true">
+          <svg><use href="#logo"/></svg>
+          <div class="w-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><span data-i18n="w.scan">Scan</span></div>
+          <div class="w-item on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M4 20l7-7M13 3l8 8-6 6-8-8z"/></svg><span data-i18n="w.clean">Clean up</span></div>
+          <div class="w-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 4v8l6 4"/></svg><span data-i18n="w.space">Space</span></div>
+          <div class="w-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg>Apps</div>
+          <div class="w-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M13 3L5 14h6l-1 7 8-11h-6z"/></svg><span data-i18n="w.speed">Speed</span></div>
+        </div>
+        <div class="w-stage">
+          <div class="ring">
+            <svg viewBox="0 0 200 200" aria-hidden="true">
+              <circle cx="100" cy="100" r="84" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="12"/>
+              <circle class="arc" cx="100" cy="100" r="84" fill="none" stroke="url(#ringg)" stroke-width="12" stroke-linecap="round" transform="rotate(-90 100 100)"/>
+            </svg>
+            <div class="ring-c"><small data-i18n="w.found">Found</small><b class="js-size">5.4 GB</b><span data-i18n="w.ticked">2.3 GB ticked</span></div>
+          </div>
+          <div class="rows">
+            <div class="rows-list">
+              <div class="row"><span class="tick"><svg width="10" height="10"><use href="#check"/></svg></span><span class="nm"><em data-i18n="r.pip">pip, uv and Poetry caches</em></span><span class="sz js-size">1.7 GB</span></div>
+              <div class="row"><span class="tick"><svg width="10" height="10"><use href="#check"/></svg></span><span class="nm"><em data-i18n="r.temp">Temporary files</em></span><span class="sz js-size">503 MB</span></div>
+              <div class="row"><span class="tick"><svg width="10" height="10"><use href="#check"/></svg></span><span class="nm"><em data-i18n="r.browser">Browser caches</em></span><span class="sz js-size">63 MB</span></div>
+              <div class="row"><span class="tick"><svg width="10" height="10"><use href="#check"/></svg></span><span class="nm"><em data-i18n="r.editor">Code editor caches</em></span><span class="sz js-size">31 MB</span></div>
+              <div class="row rev"><span class="tick off"></span><span class="nm"><em data-i18n="r.general">General tool cache</em><span class="chip-rev" data-i18n="w.review">Review</span></span><span class="sz js-size">2.5 GB</span></div>
+              <div class="row rev"><span class="tick off"></span><span class="nm"><em data-i18n="r.offline">Website offline caches</em><span class="chip-rev" data-i18n="w.review">Review</span></span><span class="sz js-size">546 MB</span></div>
+            </div>
+            <div class="w-foot"><span class="w-note" data-i18n="w.note">Safe items ticked</span><span class="w-btn" data-i18n="w.btn">Clean 2.3 GB</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="caption" data-i18n="w.caption">Real scan of a Windows 11 PC (238 GB disk) on 24 Nov 2026. Nothing was deleted.</p>
+    </div>
+  </div>
+</header>
+
+<section id="tools">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow" data-i18n="tools.eyebrow">Ten tools, one window</div>
+      <h2 data-i18n="tools.h2">Every tool has its own colour, <br>so you always know where you are.</h2>
+    </div>
+    <div class="tools">
+      <div class="tool" style="--a:#46F0B0;--b:#2BB8E8"><span class="bar"></span><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M4 20l7-7M13 3l8 8-6 6-8-8z"/></svg></div><div><h3 data-i18n="t1.h">Clean up</h3><p data-i18n="t1.p">Caches, logs, Trash and old installers, measured from a fixed list.</p></div></div>
+      <div class="tool" style="--a:#C77DFF;--b:#FF6BD6"><span class="bar"></span><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 4v8l6 4"/></svg></div><div><h3 data-i18n="t2.h">Space Map</h3><p data-i18n="t2.p">See which folders take your disk, on any drive you choose.</p></div></div>
+      <div class="tool" style="--a:#FFA24C;--b:#FF5C8A"><span class="bar"></span><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M5 18h14M5 13h10M5 8h6"/></svg></div><div><h3 data-i18n="t3.h">Large files</h3><p data-i18n="t3.p">The biggest files you forgot about, sorted by size.</p></div></div>
+      <div class="tool" style="--a:#6C8BFF;--b:#B07BFF"><span class="bar"></span><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M8 7l-4 5 4 5M16 7l4 5-4 5"/></svg></div><div><h3 data-i18n="t4.h">Projects</h3><p data-i18n="t4.p">Build folders and dependencies left in code you no longer touch.</p></div></div>
+      <div class="tool" style="--a:#FFC75A;--b:#FF8A5C"><span class="bar"></span><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg></div><div><h3>Apps</h3><p data-i18n="t5.p">Unused apps, removed together with the files they leave behind.</p></div></div>
+      <div class="tool" style="--a:#A6EE5E;--b:#2BC8A8"><span class="bar"></span><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="4" y="7" width="11" height="13" rx="2"/><path d="M9 4h9a2 2 0 012 2v10"/></svg></div><div><h3 data-i18n="t6.h">Duplicates</h3><p data-i18n="t6.p">Exact copies found by content. One copy always stays.</p></div></div>
+      <div class="tool" style="--a:#2BC8A8;--b:#A6EE5E"><span class="bar"></span><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/></svg></div><div><h3 data-i18n="t7.h">Similar photos</h3><p data-i18n="t7.p">Bursts and near-copies grouped side by side, so you pick the best.</p></div></div>
+      <div class="tool" style="--a:#FFB547;--b:#FF5C5C"><span class="bar"></span><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M13 3L5 14h6l-1 7 8-11h-6z"/></svg></div><div><h3 data-i18n="t8.h">Speed check</h3><p data-i18n="t8.p">What slows your computer down, in plain words.</p></div></div>
+      <div class="tool" style="--a:#FF7A8A;--b:#B57BFF"><span class="bar"></span><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v9M6.3 7.5a8 8 0 1011.4 0"/></svg></div><div><h3 data-i18n="t9.h">Startup apps</h3><p data-i18n="t9.p">Choose what opens when you sign in.</p></div></div>
+      <div class="tool" style="--a:#4FC3FF;--b:#5B6CFF"><span class="bar"></span><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="6" width="14" height="12" rx="2"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M2 10h3M2 14h3M19 10h3M19 14h3"/></svg></div><div><h3 data-i18n="t10.h">Memory</h3><p data-i18n="t10.p">Which apps hold your memory. Diovi never force-quits them.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="safety">
+  <div class="wrap safety">
+    <div>
+      <div class="eyebrow" style="color:var(--mint)" data-i18n="s.eyebrow">The promise</div>
+      <h2 style="margin-top:16px" data-i18n="s.h2">Nothing leaves without you seeing it go.</h2>
+      <ul class="promises">
+        <li><span class="pi"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/></svg></span><div><b data-i18n="p1.b">Preview first</b><span data-i18n="p1.s">A scan deletes nothing. Every clean shows the list and the total before anything happens.</span></div></li>
+        <li><span class="pi"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 109-9M3 4v5h5"/></svg></span><div><b data-i18n="p2.b">Trash or Delete now, your call</b><span data-i18n="p2.s">Trash lets you put things back from Clean history. Every clean is logged.</span></div></li>
+        <li><span class="pi"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg></span><div><b data-i18n="p3.b">Your files are off limits</b><span data-i18n="p3.s">Diovi measures a known list of folders. It never walks your whole disk looking for things to delete, and never asks for an admin password.</span></div></li>
+      </ul>
+      <div class="guard">
+        <small data-i18n="s.guard">Always protected</small>
+        <div class="chips">
+          <span class="chip"><svg width="11" height="11"><use href="#lock"/></svg>~/Documents</span>
+          <span class="chip"><svg width="11" height="11"><use href="#lock"/></svg>~/Desktop</span>
+          <span class="chip"><svg width="11" height="11"><use href="#lock"/></svg>~/Pictures</span>
+          <span class="chip"><svg width="11" height="11"><use href="#lock"/></svg>iCloud Drive</span>
+          <span class="chip"><svg width="11" height="11"><use href="#lock"/></svg>OneDrive</span>
+          <span class="chip"><svg width="11" height="11"><use href="#lock"/></svg><span data-i18n="s.keychains">Keychains</span></span>
+          <span class="chip"><svg width="11" height="11"><use href="#lock"/></svg>~/.ssh</span>
+          <span class="chip"><svg width="11" height="11"><use href="#lock"/></svg><span data-i18n="s.mail">Mail &amp; Messages</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="dialog" role="group" aria-label="Confirmation dialog">
+      <h3 data-i18n="d.h">Clean 2.3 GB?</h3>
+      <p data-i18n="d.p">These 4 items will be removed.</p>
+      <div class="d-list">
+        <div><span data-i18n="r.pip">pip, uv and Poetry caches</span><span class="sz js-size">1.7 GB</span></div>
+        <div><span data-i18n="r.temp">Temporary files</span><span class="sz js-size">503 MB</span></div>
+        <div><span data-i18n="r.browser">Browser caches</span><span class="sz js-size">63 MB</span></div>
+        <div><span data-i18n="r.editor">Code editor caches</span><span class="sz js-size">31 MB</span></div>
+      </div>
+      <div class="choices">
+        <button class="choice" id="c-trash" type="button" aria-pressed="true"><b><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#46F0B0" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 109-9M3 4v5h5"/></svg><span data-i18n="c.trash">Trash</span></b><span data-i18n="c.trashs">Can be put back from Clean history.</span></button>
+        <button class="choice perm" id="c-perm" type="button" aria-pressed="false"><b><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF8A7A" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span data-i18n="c.perm">Delete now</span></b><span data-i18n="c.perms">Frees the space right away. Can't be undone.</span></button>
+      </div>
+      <div class="d-actions"><button type="button" data-i18n="d.cancel">Cancel</button><button class="go" id="go" type="button">Move to Trash</button></div>
+    </div>
+  </div>
+</section>
+
+<section class="why">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow" data-i18n="y.eyebrow">Why Diovi</div>
+      <h2 data-i18n="y.h2">A cleaner that shows its work.</h2>
+    </div>
+    <div class="diff">
+      <div><div class="k grad-text" data-i18n="y1.k">0 surprises</div><b data-i18n="y1.b">Shows each item and its size</b><p data-i18n="y1.p">No single “clean everything” button with a mystery total. You see every spot, then tick what goes.</p></div>
+      <div><div class="k grad-text" data-i18n="y2.k">1 copy kept</div><b data-i18n="y2.b">Duplicates stay safe</b><p data-i18n="y2.p">When copies are found, one is always kept, and nothing is ever force-quit to free memory.</p></div>
+      <div><div class="k grad-text" data-i18n="y3.k">0 passwords</div><b data-i18n="y3.b">No admin access</b><p data-i18n="y3.p">System files stay out of reach, links are removed as links, and every clean is written to a log you can read.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="download" style="padding-top:0">
+  <div class="wrap">
+    <div class="dl">
+      <div class="sec-head">
+        <div class="eyebrow" data-i18n="dl.eyebrow">Download</div>
+        <h2 data-i18n="dl.h2">Free your first gigabytes in a minute.</h2>
+        <p class="lede" data-i18n="dl.lede">Same design on Mac and Windows. Once installed, new versions arrive in Settings → Updates.</p>
+      </div>
+
+      <div class="cards">
+        <div class="card" data-os="mac">
+          <div class="card-top">
+            <span class="os-ic"><svg width="22" height="22"><use href="#apple"/></svg></span>
+            <span><b>macOS</b><i data-i18n="card.mac">Intel and Apple silicon</i></span>
+          </div>
+          <dl class="specs">
+            <dt data-i18n="spec.file">File</dt><dd class="js-fname" data-kind="mac">Diovi_0.5.1_universal.dmg</dd>
+            <dt data-i18n="spec.size">Size</dt><dd class="js-fsize" data-kind="mac">11.8 MB</dd>
+            <dt data-i18n="spec.dls">Downloads</dt><dd class="js-fcount" data-kind="mac">20</dd>
+          </dl>
+          <a class="btn btn-ghost" data-asset="mac" href="https://github.com/NickAndriam/diovi-releases/releases/latest" target="_blank" rel="noopener"><svg width="18" height="18"><use href="#dl"/></svg><span data-i18n="card.getmac">Download .dmg</span></a>
+        </div>
+        <div class="card" data-os="win">
+          <div class="card-top">
+            <span class="os-ic"><svg width="20" height="20"><use href="#windows"/></svg></span>
+            <span><b>Windows</b><i data-i18n="card.win">64-bit installer</i></span>
+          </div>
+          <dl class="specs">
+            <dt data-i18n="spec.file">File</dt><dd class="js-fname" data-kind="win">Diovi_0.5.1_x64-setup.exe</dd>
+            <dt data-i18n="spec.size">Size</dt><dd class="js-fsize" data-kind="win">5.0 MB</dd>
+            <dt data-i18n="spec.dls">Downloads</dt><dd class="js-fcount" data-kind="win">48</dd>
+          </dl>
+          <a class="btn btn-ghost" data-asset="win" href="https://github.com/NickAndriam/diovi-releases/releases/latest" target="_blank" rel="noopener"><svg width="18" height="18"><use href="#dl"/></svg><span data-i18n="card.getwin">Download .exe</span></a>
+        </div>
+        <div class="card help">
+          <h3 data-i18n="help.h">Opening it the first time</h3>
+          <ul class="steps">
+            <li><svg width="18" height="18"><use href="#apple"/></svg><span data-i18n="help.mac"><b>Mac:</b> right-click Diovi in Applications, choose Open, then Open again.</span></li>
+            <li><svg width="16" height="16"><use href="#windows"/></svg><span data-i18n="help.win"><b>Windows:</b> in the SmartScreen box, choose More info, then Run anyway.</span></li>
+          </ul>
+          <p class="msi"><span data-i18n="help.msi">Managing many PCs?</span> <a data-asset="msi" href="https://github.com/NickAndriam/diovi-releases/releases/latest" target="_blank" rel="noopener"><span data-i18n="help.msilink">Get the .msi</span> <span class="js-fsize-paren" data-kind="msi">(7.2 MB)</span></a></p>
+        </div>
+      </div>
+
+      <div class="history">
+        <div class="h-head">
+          <h3 data-i18n="h.h">Release history</h3>
+          <span class="h-src" id="h-src">GitHub · 24 Nov 2026</span>
+        </div>
+        <div class="stats">
+          <div><b class="num" id="s-total">68</b><span data-i18n="st.total">Installer downloads</span></div>
+          <div><b class="num" id="s-mac">20</b><span>Mac</span></div>
+          <div><b class="num" id="s-win">48</b><span>Windows</span></div>
+          <div><b class="num" id="s-rel">2</b><span data-i18n="st.rel">Releases</span></div>
+        </div>
+        <div class="rtable" id="releases"></div>
+        <a class="all-rel" href="https://github.com/NickAndriam/diovi-releases/releases" target="_blank" rel="noopener"><span data-i18n="h.all">All releases</span> ↗</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="mbar" id="mbar">
+  <svg aria-hidden="true"><use href="#logo"/></svg>
+  <span class="mb-t"><b>Diovi</b><i id="mbar-sub">v0.5.1 · Mac &amp; Windows</i></span>
+  <a class="btn btn-primary js-dl" href="https://github.com/NickAndriam/diovi-releases/releases/latest" target="_blank" rel="noopener"><svg width="16" height="16" class="js-dl-icon-s"><use href="#dl"/></svg><span class="js-dl-short">Download</span></a>
+</div>
+
+<footer>
+  <div class="wrap">
+    <a class="logo" href="#top"><svg aria-hidden="true"><use href="#logo"/></svg>Diovi</a>
+    <span data-i18n="f.tag">Storage cleaner and speed tool for macOS and Windows.</span>
+    <span class="sp"><a href="https://github.com/NickAndriam/diovi-releases/releases" target="_blank" rel="noopener" data-i18n="f.notes">Release notes</a></span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  /* ---------------- French ---------------- */
+  var FR = {
+    "nav.tools": "Outils", "nav.safety": "Sécurité", "nav.download": "Télécharger", "nav.releases": "Versions",
+    "hero.eyebrow": "Nettoyeur de stockage · macOS et Windows",
+    "hero.h1": 'Libérez de l’espace. <span class="grad-text">Voyez tout avant.</span>',
+    "hero.lede": 'Diovi trouve les caches, journaux, restes de compilation et vieux installeurs dont votre ordinateur peut se passer<span class="lede-long">, montre ce que contient chaque endroit,</span> et ne supprime que ce que vous cochez.',
+    "hero.other": "Autres systèmes",
+    "hero.phone": "Diovi fonctionne sur Mac et Windows. Envoyez cette page à votre ordinateur, ou choisissez un fichier dans Autres systèmes.",
+    "menu.here": "Votre système", "menu.all": "Toutes les versions", "menu.allsub": "Anciennes versions et notes",
+    "meta.free": "Gratuit", "meta.lang": "Français et anglais", "meta.auto": "Mise à jour auto",
+    "w.scan": "Analyse", "w.clean": "Nettoyer", "w.space": "Espace", "w.speed": "Vitesse",
+    "w.found": "Trouvé", "w.ticked": "2,3 Go cochés", "w.review": "À vérifier", "w.note": "Éléments sûrs cochés", "w.btn": "Nettoyer 2,3 Go",
+    "w.caption": "Analyse réelle d’un PC Windows 11 (disque de 238 Go) le 24 nov. 2026. Rien n’a été supprimé.",
+    "r.pip": "Caches pip, uv et Poetry", "r.temp": "Fichiers temporaires", "r.browser": "Caches des navigateurs", "r.editor": "Caches des éditeurs de code",
+    "r.general": "Cache général des outils", "r.offline": "Caches hors ligne des sites",
+    "tools.eyebrow": "Dix outils, une fenêtre", "tools.h2": "Chaque outil a sa couleur, <br>pour toujours savoir où vous êtes.",
+    "t1.h": "Nettoyer", "t1.p": "Caches, journaux, Corbeille et vieux installeurs, mesurés à partir d’une liste fixe.",
+    "t2.h": "Carte de l’espace", "t2.p": "Voyez quels dossiers occupent votre disque, sur le disque de votre choix.",
+    "t3.h": "Gros fichiers", "t3.p": "Les plus gros fichiers oubliés, triés par taille.",
+    "t4.h": "Projets", "t4.p": "Dossiers de compilation et dépendances laissés dans du code que vous n’ouvrez plus.",
+    "t5.p": "Les apps inutilisées, supprimées avec les fichiers qu’elles laissent.",
+    "t6.h": "Doublons", "t6.p": "Copies exactes trouvées par leur contenu. Une copie reste toujours.",
+    "t7.h": "Photos similaires", "t7.p": "Rafales et quasi-copies côte à côte, pour garder la meilleure.",
+    "t8.h": "Diagnostic vitesse", "t8.p": "Ce qui ralentit votre ordinateur, en mots simples.",
+    "t9.h": "Apps au démarrage", "t9.p": "Choisissez ce qui s’ouvre à la connexion.",
+    "t10.h": "Mémoire", "t10.p": "Quelles apps occupent la mémoire. Diovi ne les force jamais à quitter.",
+    "s.eyebrow": "La promesse", "s.h2": "Rien ne part sans que vous le voyiez.",
+    "p1.b": "Aperçu d’abord", "p1.s": "Une analyse ne supprime rien. Chaque nettoyage montre la liste et le total avant toute action.",
+    "p2.b": "Corbeille ou suppression, à vous de choisir", "p2.s": "La Corbeille permet de tout remettre depuis l’historique. Chaque nettoyage est journalisé.",
+    "p3.b": "Vos fichiers sont intouchables", "p3.s": "Diovi mesure une liste connue de dossiers. Il ne parcourt jamais tout le disque pour chercher quoi supprimer, et ne demande jamais de mot de passe administrateur.",
+    "s.guard": "Toujours protégés", "s.keychains": "Trousseaux", "s.mail": "Mail et Messages",
+    "d.h": "Nettoyer 2,3 Go ?", "d.p": "Ces 4 éléments seront supprimés.", "d.cancel": "Annuler",
+    "c.trash": "Corbeille", "c.trashs": "Peut être remis depuis l’historique.", "c.perm": "Supprimer maintenant", "c.perms": "Libère l’espace tout de suite. Irréversible.",
+    "y.eyebrow": "Pourquoi Diovi", "y.h2": "Un nettoyeur qui montre son travail.",
+    "y1.k": "0 surprise", "y1.b": "Chaque élément et sa taille", "y1.p": "Pas de bouton « tout nettoyer » au total mystérieux. Vous voyez chaque endroit, puis cochez ce qui part.",
+    "y2.k": "1 copie gardée", "y2.b": "Les doublons restent sûrs", "y2.p": "Quand des copies sont trouvées, une est toujours gardée, et rien n’est forcé à quitter pour libérer la mémoire.",
+    "y3.k": "0 mot de passe", "y3.b": "Pas d’accès administrateur", "y3.p": "Les fichiers système restent hors d’atteinte, les liens sont supprimés comme liens, et chaque nettoyage est écrit dans un journal lisible.",
+    "dl.eyebrow": "Télécharger", "dl.h2": "Libérez vos premiers gigaoctets en une minute.",
+    "dl.lede": "Même design sur Mac et Windows. Une fois installé, les nouvelles versions arrivent dans Réglages → Mises à jour.",
+    "card.mac": "Intel et Apple silicon", "card.win": "Installeur 64 bits", "card.getmac": "Télécharger le .dmg", "card.getwin": "Télécharger le .exe",
+    "spec.file": "Fichier", "spec.size": "Taille", "spec.dls": "Téléchargements",
+    "help.h": "Premier lancement",
+    "help.mac": "<b>Mac :</b> clic droit sur Diovi dans Applications, choisissez Ouvrir, puis Ouvrir à nouveau.",
+    "help.win": "<b>Windows :</b> dans la fenêtre SmartScreen, choisissez Informations complémentaires, puis Exécuter quand même.",
+    "help.msi": "Plusieurs PC à gérer ?", "help.msilink": "Prenez le .msi",
+    "h.h": "Historique des versions", "st.total": "Téléchargements d’installeurs", "st.rel": "Versions", "h.all": "Toutes les versions",
+    "f.tag": "Nettoyeur de stockage et outil de vitesse pour macOS et Windows.", "f.notes": "Notes de version"
+  };
+  var D = {
+    en: { dlMac: "Download for Mac", dlWin: "Download for Windows", dlShort: "Download", send: "Send to my computer", sendShort: "Send link",
+          dls: function (n) { return n + (n === 1 ? " download" : " downloads"); }, latest: "Latest", live: "Live from GitHub", asOf: function (d) { return "GitHub · " + d; },
+          copied: "Link copied. Open it on your computer to download Diovi.", openOn: function (u) { return "Open this on your computer: " + u; },
+          moveTrash: "Move to Trash", deleteNow: "Delete now", mbar: function (v) { return v + " · Mac & Windows"; },
+          infoMac: "Universal .dmg", infoWin: "x64 installer (.exe)", infoMsi: "For managed installs",
+          cols: ["Version", "Date", "Downloads", "Files"], locale: "en-GB" },
+    fr: { dlMac: "Télécharger pour Mac", dlWin: "Télécharger pour Windows", dlShort: "Télécharger", send: "Envoyer à mon ordinateur", sendShort: "Envoyer",
+          dls: function (n) { return n + (n <= 1 ? " téléchargement" : " téléchargements"); }, latest: "Dernière", live: "En direct de GitHub", asOf: function (d) { return "GitHub · " + d; },
+          copied: "Lien copié. Ouvrez-le sur votre ordinateur pour télécharger Diovi.", openOn: function (u) { return "Ouvrez ceci sur votre ordinateur : " + u; },
+          moveTrash: "Mettre à la Corbeille", deleteNow: "Supprimer maintenant", mbar: function (v) { return v + " · Mac et Windows"; },
+          infoMac: ".dmg universel", infoWin: "Installeur x64 (.exe)", infoMsi: "Pour les parcs gérés",
+          cols: ["Version", "Date", "Téléchargements", "Fichiers"], locale: "fr-FR" }
+  };
+  var lang = "en";
+  try { lang = localStorage.getItem("diovi-lang") || ""; } catch (e) {}
+  var q = /[?&]lang=(en|fr)/.exec(location.search); if (q) lang = q[1];
+  if (lang !== "en" && lang !== "fr") lang = /^fr/i.test(navigator.language || "") ? "fr" : "en";
+  function t(k) { return D[lang][k]; }
+  function size(s) { return lang === "fr" ? s.replace(".", ",").replace(/\bGB\b/, "Go").replace(/\bMB\b/, "Mo").replace(/\bKB\b/, "Ko") : s; }
+  function mb(b) { return size((b / 1e6).toFixed(1) + " MB"); }
+  function fmtDate(s) { return new Date(s).toLocaleDateString(t("locale"), { day: "numeric", month: "short", year: "numeric" }); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function setText(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
+
+  function translateStatic() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll("[data-i18n]").forEach(function (el) {
+      if (el.dataset.en == null) el.dataset.en = el.innerHTML;
+      var k = el.getAttribute("data-i18n");
+      el.innerHTML = lang === "fr" && FR[k] ? FR[k] : el.dataset.en;
+    });
+    document.querySelectorAll(".js-size").forEach(function (el) {
+      if (el.dataset.en == null) el.dataset.en = el.textContent;
+      el.textContent = size(el.dataset.en);
+    });
+    document.querySelectorAll(".lang button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.lang === lang)); });
+  }
+
+  /* ---------------- System detection ---------------- */
+  var ua = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
+  var full = navigator.userAgent || "";
+  var os = /win/i.test(ua) ? "win" : /mac|iphone|ipad/i.test(ua) ? "mac" : /windows/i.test(full) ? "win" : "mac";
+  var known = /win|mac/i.test(ua + full);
+  var isPhone = !!((navigator.userAgentData && navigator.userAgentData.mobile) || /Android|iPhone|iPod|Mobile/i.test(full));
+  if (isPhone) document.body.classList.add("on-phone");
+  if (known && !isPhone) document.querySelectorAll('[data-os="' + os + '"]').forEach(function (el) {
+    el.classList.add("mine"); var h = el.querySelector(".here"); if (h) h.hidden = false;
+  });
+
+  /* ---------------- Releases ----------------
+     Snapshot of api.github.com/repos/nickandriam/diovi-releases/releases on 24 Nov 2026.
+     The page asks GitHub for fresh numbers on load; if that fails, these stay. */
+  var API = "https://api.github.com/repos/nickandriam/diovi-releases/releases";
+  var DLB = "https://github.com/NickAndriam/diovi-releases/releases/download/";
+  function A(tag, name, sz, n) { return { name: name, size: sz, download_count: n, browser_download_url: DLB + tag + "/" + name }; }
+  var releases = [
+    { tag_name: "v0.5.1", published_at: "2026-11-24T12:32:46Z", html_url: "https://github.com/NickAndriam/diovi-releases/releases/tag/v0.5.1",
+      assets: [A("v0.5.1", "Diovi_0.5.1_universal.dmg", 11832568, 19), A("v0.5.1", "Diovi_0.5.1_x64-setup.exe", 5007836, 44), A("v0.5.1", "Diovi_0.5.1_x64_en-US.msi", 7188480, 1)] },
+    { tag_name: "v0.5.0", published_at: "2026-11-24T00:21:23Z", html_url: "https://github.com/NickAndriam/diovi-releases/releases/tag/v0.5.0",
+      assets: [A("v0.5.0", "Diovi_0.5.0_universal.dmg", 11618565, 1), A("v0.5.0", "Diovi_0.5.0_x64-setup.exe", 4908345, 2), A("v0.5.0", "Diovi_0.5.0_x64_en-US.msi", 7061504, 1)] }
+  ];
+  var live = false;
+  var KINDS = { mac: /\.dmg$/i, win: /-setup\.exe$/i, msi: /\.msi$/i };
+  function find(r, kind) { return (r.assets || []).filter(function (a) { return KINDS[kind].test(a.name); })[0]; }
+  function count(r, kind) { return (r.assets || []).reduce(function (s, a) { return s + (KINDS[kind].test(a.name) ? a.download_count : 0); }, 0); }
+
+  function renderReleases() {
+    var rels = releases.filter(function (r) { return !r.draft && !r.prerelease; });
+    if (!rels.length) return;
+    var latest = rels[0];
+    var tot = { mac: 0, win: 0, msi: 0 };
+    rels.forEach(function (r) { Object.keys(KINDS).forEach(function (k) { tot[k] += count(r, k); }); });
+    var winAll = tot.win + tot.msi, all = tot.mac + winAll;
+    var info = { mac: t("infoMac"), win: t("infoWin"), msi: t("infoMsi") };
+
+    Object.keys(KINDS).forEach(function (k) {
+      var a = find(latest, k); if (!a) return;
+      document.querySelectorAll('[data-asset="' + k + '"]').forEach(function (el) { el.href = a.browser_download_url; });
+      document.querySelectorAll('.js-file[data-kind="' + k + '"]').forEach(function (el) { el.textContent = info[k] + " · " + mb(a.size); });
+      document.querySelectorAll('.js-fname[data-kind="' + k + '"]').forEach(function (el) { el.textContent = a.name; });
+      document.querySelectorAll('.js-fsize[data-kind="' + k + '"]').forEach(function (el) { el.textContent = mb(a.size); });
+      document.querySelectorAll('.js-fsize-paren[data-kind="' + k + '"]').forEach(function (el) { el.textContent = "(" + mb(a.size) + ")"; });
+    });
+    document.querySelectorAll('.js-fcount[data-kind="mac"]').forEach(function (el) { el.textContent = tot.mac; });
+    document.querySelectorAll('.js-fcount[data-kind="win"]').forEach(function (el) { el.textContent = winAll; });
+
+    var mine = find(latest, os === "win" ? "win" : "mac");
+    document.querySelectorAll(".js-dl").forEach(function (el) { if (mine) el.href = mine.browser_download_url; });
+    document.querySelectorAll(".js-dl-meta").forEach(function (el) { el.textContent = mine ? mb(mine.size) : latest.tag_name; });
+    document.querySelectorAll(".js-dl-label").forEach(function (el) { el.textContent = isPhone ? t("send") : os === "win" ? t("dlWin") : t("dlMac"); });
+    document.querySelectorAll(".js-dl-short").forEach(function (el) { el.textContent = isPhone ? t("sendShort") : t("dlShort"); });
+    var ic = isPhone ? "#share" : os === "win" ? "#windows" : "#apple";
+    document.querySelectorAll(".js-dl-icon use").forEach(function (el) { el.setAttribute("href", ic); });
+    if (isPhone) document.querySelectorAll(".js-dl-icon-s use").forEach(function (el) { el.setAttribute("href", "#share"); });
+
+    setText("m-ver", latest.tag_name + " · " + fmtDate(latest.published_at));
+    setText("m-dl", t("dls")(all));
+    setText("mbar-sub", t("mbar")(latest.tag_name));
+    setText("s-total", all); setText("s-mac", tot.mac); setText("s-win", winAll); setText("s-rel", rels.length);
+    var src = document.getElementById("h-src");
+    src.textContent = live ? t("live") : t("asOf")(fmtDate("2026-11-24T12:00:00Z"));
+    src.classList.toggle("live", live);
+
+    var c = t("cols");
+    var head = '<div class="rrow head"><span>' + c[0] + '</span><span>' + c[1] + '</span><span>' + c[2] + '</span><span class="files">' + c[3] + '</span></div>';
+    document.getElementById("releases").innerHTML = head + rels.slice(0, 6).map(function (r, i) {
+      var n = count(r, "mac") + count(r, "win") + count(r, "msi");
+      var files = ["mac", "win", "msi"].map(function (k) {
+        var a = find(r, k); if (!a) return "";
+        var lbl = k === "mac" ? "Mac .dmg" : k === "win" ? "Windows .exe" : ".msi";
+        return '<a href="' + esc(a.browser_download_url) + '" title="' + esc(a.name) + ' · ' + t("dls")(a.download_count) + '"><b>' + lbl + '</b> ' + mb(a.size) + '</a>';
+      }).join("");
+      return '<div class="rrow"><a class="tag" href="' + esc(r.html_url) + '" target="_blank" rel="noopener">' + esc(r.tag_name) + (i === 0 ? '<span class="badge">' + t("latest") + '</span>' : "") + '</a>' +
+        '<span class="when"><time datetime="' + esc(r.published_at) + '">' + fmtDate(r.published_at) + '</time></span>' +
+        '<span class="cnt">' + t("dls")(n) + '</span><span class="files">' + files + '</span></div>';
+    }).join("");
+  }
+
+  function render() { translateStatic(); renderReleases(); syncGo(); }
+
+  /* ---------------- Language switch ---------------- */
+  document.querySelectorAll(".lang button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      lang = b.dataset.lang;
+      try { localStorage.setItem("diovi-lang", lang); } catch (e) {}
+      render();
+    });
+  });
+
+  /* ---------------- Other platforms menu ---------------- */
+  var btn = document.getElementById("other-btn"), menu = document.getElementById("other-menu");
+  function setOpen(open) { menu.hidden = !open; btn.setAttribute("aria-expanded", String(open)); }
+  btn.addEventListener("click", function (e) { e.stopPropagation(); setOpen(menu.hidden); if (!menu.hidden) { var f = menu.querySelector("a"); if (f) f.focus(); } });
+  document.addEventListener("click", function (e) { if (!menu.contains(e.target)) setOpen(false); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !menu.hidden) { setOpen(false); btn.focus(); } });
+
+  /* ---------------- Confirmation dialog demo ---------------- */
+  var cT = document.getElementById("c-trash"), cP = document.getElementById("c-perm"), go = document.getElementById("go"), perm = false;
+  function syncGo() { cT.setAttribute("aria-pressed", String(!perm)); cP.setAttribute("aria-pressed", String(perm)); go.textContent = perm ? t("deleteNow") : t("moveTrash"); go.classList.toggle("perm", perm); }
+  cT.addEventListener("click", function () { perm = false; syncGo(); });
+  cP.addEventListener("click", function () { perm = true; syncGo(); });
+
+  /* ---------------- Phones: share the page instead of downloading ---------------- */
+  if (isPhone) {
+    var note = document.getElementById("phone-note");
+    var pageUrl = /^https?:/.test(location.protocol) ? location.href.split("#")[0] : "https://github.com/NickAndriam/diovi-releases/releases/latest";
+    var copy = function () {
+      var fail = function () { note.textContent = t("openOn")(pageUrl); };
+      try { navigator.clipboard.writeText(pageUrl).then(function () { note.textContent = t("copied"); }, fail); } catch (e) { fail(); }
+    };
+    document.querySelectorAll(".js-dl").forEach(function (el) {
+      el.removeAttribute("target");
+      el.addEventListener("click", function (e) {
+        e.preventDefault();
+        if (navigator.share) navigator.share({ title: "Diovi", url: pageUrl }).catch(function (err) { if (!err || err.name !== "AbortError") copy(); });
+        else copy();
+      });
+    });
+  }
+
+  /* ---------------- Bottom bar on phones ---------------- */
+  var bar = document.getElementById("mbar"), seen = { cta: true, download: false }, scrolled = false;
+  function syncBar() { bar.classList.toggle("show", scrolled && !seen.cta && !seen.download); }
+  if (window.IntersectionObserver) {
+    var io = new IntersectionObserver(function (es) { es.forEach(function (e) { seen[e.target.id] = e.isIntersecting; }); syncBar(); });
+    io.observe(document.getElementById("cta")); io.observe(document.getElementById("download"));
+    window.addEventListener("scroll", function () { if (!scrolled && window.scrollY > 120) { scrolled = true; syncBar(); } }, { passive: true });
+  }
+
+  render();
+
+  try {
+    var ctl = window.AbortController ? new AbortController() : null;
+    if (ctl) setTimeout(function () { ctl.abort(); }, 6000);
+    fetch(API, { headers: { Accept: "application/vnd.github+json" }, signal: ctl ? ctl.signal : undefined })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (d) { if (Array.isArray(d) && d.length) { releases = d; live = true; renderReleases(); } })
+      .catch(function () {});
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>
