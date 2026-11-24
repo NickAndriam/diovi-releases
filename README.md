@@ -4,6 +4,19 @@ Diovi finds the storage your computer can safely give back (caches, logs, the Tr
 
 It runs on **macOS** and **Windows** with the same design, in English or French.
 
+![Smart Scan check-up results](screenshots/smart-scan.png)
+
+## Screenshots
+
+| | |
+| --- | --- |
+| ![Cleanup: pick exactly what to remove](screenshots/cleanup.png) | ![Space Map: what fills your disk, folder by folder](screenshots/space-map.png) |
+| **Cleanup.** Tick exactly what goes. Anything that needs a second look is marked *Review*. | **Space Map.** See what fills your disk, folder by folder. It only shows; it never deletes. |
+| ![Speed Check: measured causes of slowness, each with a fix](screenshots/speed-check.png) | <img src="screenshots/menu-bar.png" alt="Menu bar popover with memory and storage" width="300"> |
+| **Speed Check.** What is slowing your computer right now, with the evidence and a fix for each cause. | **Menu bar.** Memory and storage at a glance, with Speed up, Free up and Empty Trash. |
+
+<sub>Screenshots of version 0.5.0 on a Mac, with example numbers. Windows has the same layout with Windows window controls.</sub>
+
 ## Download
 
 Get the newest version from the **[Releases page](https://github.com/NickAndriam/diovi-releases/releases/latest)**.
