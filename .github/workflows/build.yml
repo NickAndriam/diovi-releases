@@ -1,0 +1,88 @@
+name: Build installers
+
+# Builds Diovi from the private NickAndriam/diovi repo and publishes the
+# installers and the updater's latest.json as a release here.
+# This repo is public, so these builds use no paid GitHub minutes.
+#
+# Start it:
+#   - Actions tab -> Build installers -> Run workflow
+#   - gh workflow run build.yml -R NickAndriam/diovi-releases -f ref=v0.5.1
+#   - pushing a tag v* in NickAndriam/diovi (it sends a "build" dispatch here)
+#
+# "publish: false" only tests and compiles on Mac and Windows; nothing is published.
+#
+# Secrets in this repo:
+#   DIOVI_READ_TOKEN          fine-grained token, Contents: Read-only on NickAndriam/diovi
+#   TAURI_SIGNING_PRIVATE_KEY the updater signing key
+#
+# Only people with write access can start this (no pull_request triggers),
+# and nothing is cached, so no build output of the private code is left here.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag or branch of NickAndriam/diovi to build
+        default: main
+      publish:
+        description: Publish a release (off = only test and compile)
+        type: boolean
+        default: true
+  repository_dispatch:
+    types: [build]
+
+permissions:
+  contents: write
+
+env:
+  REF: ${{ github.event.inputs.ref || github.event.client_payload.ref || 'main' }}
+  PUBLISH: ${{ github.event_name == 'repository_dispatch' || github.event.inputs.publish == 'true' }}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target universal-apple-darwin
+          - platform: windows-latest
+            args: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: NickAndriam/diovi
+          ref: ${{ env.REF }}
+          token: ${{ secrets.DIOVI_READ_TOKEN }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Safety and cleaning tests
+        if: env.PUBLISH != 'true'
+        run: cargo test -p diovi-core
+      - name: App compiles
+        if: env.PUBLISH != 'true'
+        run: cargo check -p diovi-app
+
+      - run: npm ci
+        if: env.PUBLISH == 'true'
+      - uses: tauri-apps/tauri-action@v0
+        if: env.PUBLISH == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        with:
+          releaseCommitish: main
+          tagName: v__VERSION__
+          releaseName: Diovi v__VERSION__
+          releaseBody: Download the .dmg for Mac or the -setup.exe for Windows. Diovi updates itself from here.
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+          args: ${{ matrix.args }}
